@@ -12,6 +12,18 @@ pnpm dlx shadcn@latest add button -c apps/web
 
 This will place the ui components in the `packages/ui/src/components` directory.
 
+## NixOS / Playwright setup
+
+If you're on NixOS, use the provided dev shell so Playwright works without manually installing Ubuntu libraries:
+
+```bash
+nix develop
+pnpm install
+pnpm --filter web test
+```
+
+The shell uses `playwright-driver` and sets the required Playwright env vars automatically.
+
 ## Using components
 
 To use the components in your app, import them from the `ui` package.
