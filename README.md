@@ -32,10 +32,16 @@ pnpm --filter web start
 
 ## Test
 
-Browser tests are intended to run in Docker in this environment.
+Run web unit/integration tests locally:
 
 ```bash
-pnpm test:web:docker
+pnpm --filter web test -- --run
+```
+
+Run the repository test image (Docker):
+
+```bash
+pnpm test
 ```
 
 ## Dashboard shell architecture
