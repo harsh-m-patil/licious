@@ -1,5 +1,10 @@
 import type { Task, TaskPriority, TaskState } from "@/lib/tasks/types"
 
+export interface CreateTaskOptions {
+  now?: string
+  createTaskId?: () => string
+}
+
 export interface CreateTaskInput {
   title: string
   description: string
@@ -66,11 +71,14 @@ function createTaskId(): string {
   return `task-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 }
 
-export function createTask(input: CreateTaskInput): Task {
-  const now = new Date().toISOString()
+export function createTask(
+  input: CreateTaskInput,
+  options: CreateTaskOptions = {}
+): Task {
+  const now = options.now ?? new Date().toISOString()
 
   return {
-    id: createTaskId(),
+    id: options.createTaskId?.() ?? createTaskId(),
     title: input.title.trim(),
     description: input.description.trim(),
     priority: input.priority,

@@ -22,14 +22,17 @@ import {
   TableRow,
 } from "@workspace/ui/components/table"
 import { Textarea } from "@workspace/ui/components/textarea"
-import {
-  createTask,
-  hasCreateTaskValidationErrors,
-  type CreateTaskInput,
-  type CreateTaskValidationErrors,
-  validateCreateTaskInput,
-} from "@/lib/tasks/state"
+import type { CreateTaskInput } from "@/lib/tasks/state"
 import { loadTasks, saveTasks } from "@/lib/tasks/storage"
+import {
+  cancelTaskEditing,
+  createTaskWorkflowState,
+  deleteTaskFromWorkflow,
+  startTaskEditing,
+  submitTaskWorkflow,
+  toggleTaskWorkflowStatus,
+  updateTaskWorkflowDraft,
+} from "@/lib/tasks/workflow"
 import type {
   Task,
   TaskPriority,
@@ -38,13 +41,6 @@ import type {
   TaskStatusFilter,
 } from "@/lib/tasks/types"
 import { filterTasks, isTaskOverdue, sortTasks, summarizeTasks } from "@/lib/tasks/utils"
-
-const defaultTaskInput: CreateTaskInput = {
-  title: "",
-  description: "",
-  priority: "medium",
-  dueDate: "",
-}
 
 const selectClassName =
   "border-input bg-background ring-offset-background focus-visible:ring-ring focus-visible:ring-3 flex min-h-11 w-full rounded-md border px-3 py-2 text-sm"
@@ -77,37 +73,26 @@ function statusRowClassName(task: Task): string {
   return baseClassName
 }
 
-function toTaskInput(task: Task): CreateTaskInput {
-  return {
-    title: task.title,
-    description: task.description,
-    priority: task.priority,
-    dueDate: task.dueDate,
-  }
-}
-
 export default function Page() {
-  const [tasks, setTasks] = useState<Task[]>(() => loadTasks())
-  const [taskInput, setTaskInput] = useState<CreateTaskInput>(defaultTaskInput)
-  const [errors, setErrors] = useState<CreateTaskValidationErrors>({})
-  const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
+  const [workflow, setWorkflow] = useState(() =>
+    createTaskWorkflowState(loadTasks())
+  )
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>("all")
   const [priorityFilter, setPriorityFilter] = useState<TaskPriorityFilter>("all")
   const [sortBy, setSortBy] = useState<TaskSortOption>("default")
   const [viewMode, setViewMode] = useState<TaskViewMode>("list")
-  const [feedbackMessage, setFeedbackMessage] = useState("")
   const searchInputRef = useRef<HTMLInputElement | null>(null)
 
-  const summary = useMemo(() => summarizeTasks(tasks), [tasks])
+  const summary = useMemo(() => summarizeTasks(workflow.tasks), [workflow.tasks])
   const filteredTasks = useMemo(
     () =>
-      filterTasks(tasks, {
+      filterTasks(workflow.tasks, {
         searchQuery,
         statusFilter,
         priorityFilter,
       }),
-    [tasks, searchQuery, statusFilter, priorityFilter]
+    [workflow.tasks, searchQuery, statusFilter, priorityFilter]
   )
   const visibleTasks = useMemo(
     () => sortTasks(filteredTasks, { sortBy }),
@@ -123,89 +108,24 @@ export default function Page() {
     key: K,
     value: CreateTaskInput[K]
   ) => {
-    setTaskInput((current) => ({ ...current, [key]: value }))
-    setErrors((current) => {
-      const nextErrors = { ...current }
-      delete nextErrors[key]
-      return nextErrors
-    })
+    setWorkflow((current) => updateTaskWorkflowDraft(current, key, value))
   }
 
   const cancelEditingTask = () => {
-    setEditingTaskId(null)
-    setTaskInput(defaultTaskInput)
-    setErrors({})
+    setWorkflow((current) => cancelTaskEditing(current))
   }
 
   const startEditingTask = (task: Task) => {
-    setEditingTaskId(task.id)
-    setTaskInput(toTaskInput(task))
-    setErrors({})
+    setWorkflow((current) => startTaskEditing(current, task.id))
   }
 
   const onSubmitTask = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-
-    const validationErrors = validateCreateTaskInput(taskInput)
-
-    if (hasCreateTaskValidationErrors(validationErrors)) {
-      setErrors(validationErrors)
-      return
-    }
-
-    if (editingTaskId) {
-      setTasks((current) => {
-        const nextTasks = current.map((task) =>
-          task.id === editingTaskId
-            ? {
-                ...task,
-                ...taskInput,
-                updatedAt: new Date().toISOString(),
-              }
-            : task
-        )
-        saveTasks(nextTasks)
-        return nextTasks
-      })
-
-      cancelEditingTask()
-      setFeedbackMessage("Task updated successfully")
-      return
-    }
-
-    const nextTask = createTask(taskInput)
-
-    setTasks((current) => {
-      const nextTasks = [nextTask, ...current]
-      saveTasks(nextTasks)
-      return nextTasks
-    })
-
-    setTaskInput(defaultTaskInput)
-    setErrors({})
-    setFeedbackMessage("Task created successfully")
+    setWorkflow((current) => submitTaskWorkflow(current))
   }
 
   const toggleTaskStatus = (task: Task) => {
-    setTasks((current) => {
-      const nextTasks: Task[] = current.map((currentTask) => {
-        if (currentTask.id !== task.id) {
-          return currentTask
-        }
-
-        const nextStatus: Task["status"] =
-          currentTask.status === "completed" ? "pending" : "completed"
-
-        return {
-          ...currentTask,
-          status: nextStatus,
-          updatedAt: new Date().toISOString(),
-        }
-      })
-
-      saveTasks(nextTasks)
-      return nextTasks
-    })
+    setWorkflow((current) => toggleTaskWorkflowStatus(current, task.id))
   }
 
   const deleteTask = (task: Task) => {
@@ -217,17 +137,12 @@ export default function Page() {
       return
     }
 
-    if (editingTaskId === task.id) {
-      cancelEditingTask()
-    }
-
-    setTasks((current) => {
-      const nextTasks = current.filter((currentTask) => currentTask.id !== task.id)
-      saveTasks(nextTasks)
-      return nextTasks
-    })
-    setFeedbackMessage("Task deleted successfully")
+    setWorkflow((current) => deleteTaskFromWorkflow(current, task.id))
   }
+
+  useEffect(() => {
+    saveTasks(workflow.tasks)
+  }, [workflow.tasks])
 
   useEffect(() => {
     const onGlobalKeyDown = (event: KeyboardEvent) => {
@@ -271,17 +186,17 @@ export default function Page() {
 
       <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[2fr_1fr] lg:px-8">
         <p role="status" aria-live="polite" className="sr-only">
-          {feedbackMessage}
+          {workflow.feedbackMessage}
         </p>
 
         <div className="space-y-6">
           <Card role="region" aria-label="Primary actions">
             <CardHeader>
               <CardTitle>
-                {editingTaskId ? "Edit task" : "Create a task"}
+                {workflow.editingTaskId ? "Edit task" : "Create a task"}
               </CardTitle>
               <CardDescription>
-                {editingTaskId
+                {workflow.editingTaskId
                   ? "Update title, description, priority, and due date for the selected task."
                   : "Add title, description, priority, and due date to create a pending task."}
               </CardDescription>
@@ -291,7 +206,7 @@ export default function Page() {
                 className="space-y-4"
                 onSubmit={onSubmitTask}
                 onKeyDown={(event) => {
-                  if (event.key === "Escape" && editingTaskId) {
+                  if (event.key === "Escape" && workflow.editingTaskId) {
                     event.preventDefault()
                     cancelEditingTask()
                     return
@@ -312,16 +227,18 @@ export default function Page() {
                   <Label htmlFor="task-title">Title</Label>
                   <Input
                     id="task-title"
-                    value={taskInput.title}
+                    value={workflow.draft.title}
                     onChange={(event) =>
                       updateTaskInput("title", event.currentTarget.value)
                     }
-                    aria-invalid={Boolean(errors.title)}
-                    aria-describedby={errors.title ? "task-title-error" : undefined}
+                    aria-invalid={Boolean(workflow.errors.title)}
+                    aria-describedby={
+                      workflow.errors.title ? "task-title-error" : undefined
+                    }
                   />
-                  {errors.title ? (
+                  {workflow.errors.title ? (
                     <p id="task-title-error" className="text-sm text-red-600">
-                      {errors.title}
+                      {workflow.errors.title}
                     </p>
                   ) : null}
                 </div>
@@ -330,18 +247,20 @@ export default function Page() {
                   <Label htmlFor="task-description">Description</Label>
                   <Textarea
                     id="task-description"
-                    value={taskInput.description}
+                    value={workflow.draft.description}
                     onChange={(event) =>
                       updateTaskInput("description", event.currentTarget.value)
                     }
-                    aria-invalid={Boolean(errors.description)}
+                    aria-invalid={Boolean(workflow.errors.description)}
                     aria-describedby={
-                      errors.description ? "task-description-error" : undefined
+                      workflow.errors.description
+                        ? "task-description-error"
+                        : undefined
                     }
                   />
-                  {errors.description ? (
+                  {workflow.errors.description ? (
                     <p id="task-description-error" className="text-sm text-red-600">
-                      {errors.description}
+                      {workflow.errors.description}
                     </p>
                   ) : null}
                 </div>
@@ -352,25 +271,25 @@ export default function Page() {
                     <select
                       id="task-priority"
                       className={selectClassName}
-                      value={taskInput.priority}
+                      value={workflow.draft.priority}
                       onChange={(event) =>
                         updateTaskInput(
                           "priority",
                           event.currentTarget.value as TaskPriority
                         )
                       }
-                      aria-invalid={Boolean(errors.priority)}
+                      aria-invalid={Boolean(workflow.errors.priority)}
                       aria-describedby={
-                        errors.priority ? "task-priority-error" : undefined
+                        workflow.errors.priority ? "task-priority-error" : undefined
                       }
                     >
                       <option value="low">Low</option>
                       <option value="medium">Medium</option>
                       <option value="high">High</option>
                     </select>
-                    {errors.priority ? (
+                    {workflow.errors.priority ? (
                       <p id="task-priority-error" className="text-sm text-red-600">
-                        {errors.priority}
+                        {workflow.errors.priority}
                       </p>
                     ) : null}
                   </div>
@@ -380,18 +299,18 @@ export default function Page() {
                     <Input
                       id="task-due-date"
                       type="date"
-                      value={taskInput.dueDate}
+                      value={workflow.draft.dueDate}
                       onChange={(event) =>
                         updateTaskInput("dueDate", event.currentTarget.value)
                       }
-                      aria-invalid={Boolean(errors.dueDate)}
+                      aria-invalid={Boolean(workflow.errors.dueDate)}
                       aria-describedby={
-                        errors.dueDate ? "task-due-date-error" : undefined
+                        workflow.errors.dueDate ? "task-due-date-error" : undefined
                       }
                     />
-                    {errors.dueDate ? (
+                    {workflow.errors.dueDate ? (
                       <p id="task-due-date-error" className="text-sm text-red-600">
-                        {errors.dueDate}
+                        {workflow.errors.dueDate}
                       </p>
                     ) : null}
                   </div>
@@ -399,9 +318,9 @@ export default function Page() {
 
                 <div className="flex items-center gap-2">
                   <Button type="submit" className={primaryButtonClassName}>
-                    {editingTaskId ? "Save task changes" : "New Task"}
+                    {workflow.editingTaskId ? "Save task changes" : "New Task"}
                   </Button>
-                  {editingTaskId ? (
+                  {workflow.editingTaskId ? (
                     <Button
                       type="button"
                       variant="outline"
@@ -533,7 +452,7 @@ export default function Page() {
               </div>
             </CardHeader>
             <CardContent>
-              {tasks.length === 0 ? (
+              {workflow.tasks.length === 0 ? (
                 <p className="text-muted-foreground text-sm">
                   No tasks yet. Create your first task using the form above.
                 </p>
