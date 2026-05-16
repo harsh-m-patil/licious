@@ -2,6 +2,8 @@
 
 Task Management Dashboard monorepo (Next.js + Turborepo + shadcn/ui).
 
+Deployed link -> [tasks](https://tasks.harshmpatil.xyz/)
+
 ## Run the app
 
 ### Install
