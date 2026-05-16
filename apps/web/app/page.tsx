@@ -140,6 +140,23 @@ export default function Page() {
     setErrors({})
   }
 
+  const toggleTaskStatus = (task: Task) => {
+    setTasks((current) => {
+      const nextTasks = current.map((currentTask) =>
+        currentTask.id === task.id
+          ? {
+              ...currentTask,
+              status: currentTask.status === "completed" ? "pending" : "completed",
+              updatedAt: new Date().toISOString(),
+            }
+          : currentTask
+      )
+
+      saveTasks(nextTasks)
+      return nextTasks
+    })
+  }
+
   const deleteTask = (task: Task) => {
     const shouldDelete = window.confirm(
       `Delete task "${task.title}"? This action cannot be undone.`
@@ -373,6 +390,22 @@ export default function Page() {
                         <TableCell>{task.dueDate}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() =>
+                                toggleTaskStatus(task)
+                              }
+                              aria-label={
+                                task.status === "completed"
+                                  ? `Mark task ${task.title} as pending`
+                                  : `Mark task ${task.title} as completed`
+                              }
+                            >
+                              {task.status === "completed"
+                                ? "Mark pending"
+                                : "Mark completed"}
+                            </Button>
                             <Button
                               type="button"
                               variant="outline"

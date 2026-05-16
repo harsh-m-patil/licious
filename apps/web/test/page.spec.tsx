@@ -514,6 +514,70 @@ describe("dashboard task workflow", () => {
     expect(screen.getByLabelText("Completed tasks count").textContent).toBe("1")
   })
 
+  test("toggles task status, updates counts, and persists across refresh", () => {
+    const storedTask = [
+      {
+        id: "task-1",
+        title: "Toggle me",
+        description: "Switch between states",
+        priority: "medium",
+        dueDate: "2026-06-12",
+        status: "pending",
+        createdAt: "2026-05-15T00:00:00.000Z",
+        updatedAt: "2026-05-15T00:00:00.000Z",
+      },
+    ]
+
+    window.localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(storedTask))
+
+    const { unmount } = render(<Page />)
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Mark task Toggle me as completed",
+      })
+    )
+
+    expect(screen.getByText("Completed")).toBeTruthy()
+    expect(screen.getByText("Toggle me").className).toContain("line-through")
+    expect(screen.getByText("Toggle me").closest("tr")?.className).toContain(
+      "task-row-completed"
+    )
+    expect(screen.getByLabelText("Pending tasks count").textContent).toBe("0")
+    expect(screen.getByLabelText("Completed tasks count").textContent).toBe("1")
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Mark task Toggle me as pending",
+      })
+    )
+
+    expect(screen.getByText("Pending")).toBeTruthy()
+    expect(screen.getByText("Toggle me").className).not.toContain("line-through")
+    expect(screen.getByText("Toggle me").closest("tr")?.className).toContain(
+      "task-row-pending"
+    )
+    expect(screen.getByLabelText("Pending tasks count").textContent).toBe("1")
+    expect(screen.getByLabelText("Completed tasks count").textContent).toBe("0")
+
+    const persistedTasks = JSON.parse(
+      window.localStorage.getItem(TASKS_STORAGE_KEY) ?? "[]"
+    ) as Array<{ status: string }>
+
+    expect(persistedTasks).toHaveLength(1)
+    expect(persistedTasks[0]?.status).toBe("pending")
+
+    unmount()
+    render(<Page />)
+
+    expect(screen.getByText("Pending")).toBeTruthy()
+    expect(
+      screen.getByRole("button", {
+        name: "Mark task Toggle me as completed",
+      })
+    ).toBeTruthy()
+  })
+
   test("falls back to empty list when storage payload is corrupt", () => {
     window.localStorage.setItem(TASKS_STORAGE_KEY, "{not-json")
 
