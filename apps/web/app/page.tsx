@@ -58,10 +58,20 @@ function statusRowClassName(status: Task["status"]): string {
     : "task-row-pending"
 }
 
+function toTaskInput(task: Task): CreateTaskInput {
+  return {
+    title: task.title,
+    description: task.description,
+    priority: task.priority,
+    dueDate: task.dueDate,
+  }
+}
+
 export default function Page() {
   const [tasks, setTasks] = useState<Task[]>(() => loadTasks())
   const [taskInput, setTaskInput] = useState<CreateTaskInput>(defaultTaskInput)
   const [errors, setErrors] = useState<CreateTaskValidationErrors>({})
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
 
   const summary = useMemo(() => summarizeTasks(tasks), [tasks])
 
@@ -77,13 +87,44 @@ export default function Page() {
     })
   }
 
-  const onCreateTask = (event: FormEvent<HTMLFormElement>) => {
+  const cancelEditingTask = () => {
+    setEditingTaskId(null)
+    setTaskInput(defaultTaskInput)
+    setErrors({})
+  }
+
+  const startEditingTask = (task: Task) => {
+    setEditingTaskId(task.id)
+    setTaskInput(toTaskInput(task))
+    setErrors({})
+  }
+
+  const onSubmitTask = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
     const validationErrors = validateCreateTaskInput(taskInput)
 
     if (hasCreateTaskValidationErrors(validationErrors)) {
       setErrors(validationErrors)
+      return
+    }
+
+    if (editingTaskId) {
+      setTasks((current) => {
+        const nextTasks = current.map((task) =>
+          task.id === editingTaskId
+            ? {
+                ...task,
+                ...taskInput,
+                updatedAt: new Date().toISOString(),
+              }
+            : task
+        )
+        saveTasks(nextTasks)
+        return nextTasks
+      })
+
+      cancelEditingTask()
       return
     }
 
@@ -118,14 +159,17 @@ export default function Page() {
         <div className="space-y-6">
           <Card role="region" aria-label="Primary actions">
             <CardHeader>
-              <CardTitle>Create a task</CardTitle>
+              <CardTitle>
+                {editingTaskId ? "Edit task" : "Create a task"}
+              </CardTitle>
               <CardDescription>
-                Add title, description, priority, and due date to create a
-                pending task.
+                {editingTaskId
+                  ? "Update title, description, priority, and due date for the selected task."
+                  : "Add title, description, priority, and due date to create a pending task."}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form className="space-y-4" onSubmit={onCreateTask} noValidate>
+              <form className="space-y-4" onSubmit={onSubmitTask} noValidate>
                 <div className="space-y-2">
                   <Label htmlFor="task-title">Title</Label>
                   <Input
@@ -215,7 +259,16 @@ export default function Page() {
                   </div>
                 </div>
 
-                <Button type="submit">New Task</Button>
+                <div className="flex items-center gap-2">
+                  <Button type="submit">
+                    {editingTaskId ? "Save task changes" : "New Task"}
+                  </Button>
+                  {editingTaskId ? (
+                    <Button type="button" variant="outline" onClick={cancelEditingTask}>
+                      Cancel edit
+                    </Button>
+                  ) : null}
+                </div>
               </form>
             </CardContent>
           </Card>
@@ -255,6 +308,7 @@ export default function Page() {
                       <TableHead>Status</TableHead>
                       <TableHead>Priority</TableHead>
                       <TableHead>Due date</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -297,6 +351,16 @@ export default function Page() {
                           </Badge>
                         </TableCell>
                         <TableCell>{task.dueDate}</TableCell>
+                        <TableCell>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => startEditingTask(task)}
+                            aria-label={`Edit task ${task.title}`}
+                          >
+                            Edit
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

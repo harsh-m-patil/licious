@@ -109,6 +109,81 @@ describe("dashboard task workflow", () => {
     expect(screen.getByText("Hydrate from storage")).toBeTruthy()
   })
 
+  test("starts editing an existing task from the list and prefills the form", () => {
+    const storedTask = [
+      {
+        id: "task-1",
+        title: "Edit me",
+        description: "Existing task details",
+        priority: "medium",
+        dueDate: "2026-06-02",
+        status: "pending",
+        createdAt: "2026-05-15T00:00:00.000Z",
+        updatedAt: "2026-05-15T00:00:00.000Z",
+      },
+    ]
+
+    window.localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(storedTask))
+
+    render(<Page />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit task Edit me" }))
+
+    expect((screen.getByLabelText("Title") as HTMLInputElement).value).toBe(
+      "Edit me"
+    )
+    expect(
+      (screen.getByLabelText("Description") as HTMLTextAreaElement).value
+    ).toBe("Existing task details")
+    expect((screen.getByLabelText("Priority") as HTMLSelectElement).value).toBe(
+      "medium"
+    )
+    expect((screen.getByLabelText("Due date") as HTMLInputElement).value).toBe(
+      "2026-06-02"
+    )
+    expect(
+      screen.getByRole("button", { name: /save task changes/i })
+    ).toBeTruthy()
+    expect(screen.getByRole("button", { name: /cancel edit/i })).toBeTruthy()
+  })
+
+  test("cancelling edit keeps original task unchanged", () => {
+    const storedTask = [
+      {
+        id: "task-1",
+        title: "Original title",
+        description: "Original description",
+        priority: "low",
+        dueDate: "2026-06-08",
+        status: "pending",
+        createdAt: "2026-05-15T00:00:00.000Z",
+        updatedAt: "2026-05-15T00:00:00.000Z",
+      },
+    ]
+
+    window.localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(storedTask))
+
+    render(<Page />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit task Original title" }))
+
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "Changed but cancelled" },
+    })
+
+    fireEvent.click(screen.getByRole("button", { name: /cancel edit/i }))
+
+    expect(screen.getByText("Original title")).toBeTruthy()
+    expect(screen.queryByText("Changed but cancelled")).toBeNull()
+
+    const rawValue = window.localStorage.getItem(TASKS_STORAGE_KEY)
+    expect(rawValue).toBeTruthy()
+
+    const persistedTasks = JSON.parse(rawValue ?? "[]") as Array<{ title: string }>
+    expect(persistedTasks).toHaveLength(1)
+    expect(persistedTasks[0]?.title).toBe("Original title")
+  })
+
   test("persists created tasks to local storage", () => {
     render(<Page />)
 
@@ -146,6 +221,133 @@ describe("dashboard task workflow", () => {
       dueDate: "2026-06-10",
       status: "pending",
     })
+  })
+
+  test("blocks invalid edits and shows inline validation feedback", () => {
+    const storedTask = [
+      {
+        id: "task-1",
+        title: "Valid title",
+        description: "Valid description",
+        priority: "medium",
+        dueDate: "2026-06-02",
+        status: "pending",
+        createdAt: "2026-05-15T00:00:00.000Z",
+        updatedAt: "2026-05-15T00:00:00.000Z",
+      },
+    ]
+
+    window.localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(storedTask))
+
+    render(<Page />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit task Valid title" }))
+
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "" },
+    })
+
+    fireEvent.click(screen.getByRole("button", { name: /save task changes/i }))
+
+    expect(screen.getByText("Title is required")).toBeTruthy()
+    expect(screen.getByText("Valid title")).toBeTruthy()
+
+    const rawValue = window.localStorage.getItem(TASKS_STORAGE_KEY)
+    expect(rawValue).toBeTruthy()
+
+    const persistedTasks = JSON.parse(rawValue ?? "[]") as Array<{ title: string }>
+    expect(persistedTasks).toHaveLength(1)
+    expect(persistedTasks[0]?.title).toBe("Valid title")
+  })
+
+  test("saves task edits and persists them to local storage", () => {
+    const storedTask = [
+      {
+        id: "task-1",
+        title: "Before edit",
+        description: "Before description",
+        priority: "medium",
+        dueDate: "2026-06-02",
+        status: "pending",
+        createdAt: "2026-05-15T00:00:00.000Z",
+        updatedAt: "2026-05-15T00:00:00.000Z",
+      },
+    ]
+
+    window.localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(storedTask))
+
+    render(<Page />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit task Before edit" }))
+
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "After edit" },
+    })
+    fireEvent.change(screen.getByLabelText("Description"), {
+      target: { value: "Updated description" },
+    })
+    fireEvent.change(screen.getByLabelText("Priority"), {
+      target: { value: "high" },
+    })
+    fireEvent.change(screen.getByLabelText("Due date"), {
+      target: { value: "2026-06-10" },
+    })
+
+    fireEvent.click(screen.getByRole("button", { name: /save task changes/i }))
+
+    expect(screen.getByText("After edit")).toBeTruthy()
+    expect(screen.getByText("Updated description")).toBeTruthy()
+    const editedRow = screen.getByText("After edit").closest("tr")
+    expect(editedRow?.textContent).toContain("High")
+    expect(screen.getByText("2026-06-10")).toBeTruthy()
+
+    const rawValue = window.localStorage.getItem(TASKS_STORAGE_KEY)
+    expect(rawValue).toBeTruthy()
+
+    const persistedTasks = JSON.parse(rawValue ?? "[]") as Array<{
+      title: string
+      description: string
+      priority: string
+      dueDate: string
+    }>
+
+    expect(persistedTasks).toHaveLength(1)
+    expect(persistedTasks[0]).toMatchObject({
+      title: "After edit",
+      description: "Updated description",
+      priority: "high",
+      dueDate: "2026-06-10",
+    })
+  })
+
+  test("shows saved edits after refresh", () => {
+    const storedTask = [
+      {
+        id: "task-1",
+        title: "Refresh me",
+        description: "Before refresh",
+        priority: "low",
+        dueDate: "2026-06-11",
+        status: "pending",
+        createdAt: "2026-05-15T00:00:00.000Z",
+        updatedAt: "2026-05-15T00:00:00.000Z",
+      },
+    ]
+
+    window.localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(storedTask))
+
+    const { unmount } = render(<Page />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit task Refresh me" }))
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "Saved title" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: /save task changes/i }))
+
+    unmount()
+    render(<Page />)
+
+    expect(screen.getByText("Saved title")).toBeTruthy()
   })
 
   test("renders pending and completed status styles from canonical task data", () => {
