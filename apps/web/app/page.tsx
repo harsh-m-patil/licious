@@ -5,7 +5,7 @@ import { useMemo, useState } from "react"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
 
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Search, X } from "lucide-react"
+import { CheckCircle2, Clock3, ListTodo, Search, X } from "lucide-react"
 
 import {
   CreateTaskDialog,
@@ -89,6 +89,16 @@ export default function Page() {
   const isSearching = searchInput.trim().length > 0
   const isDebouncing = searchInput !== debouncedSearchInput
   const todayDateKey = getTodayDateKey()
+  const taskStats = useMemo(() => {
+    const pendingCount = allTasks.filter((task) => task.status === "pending").length
+    const completedCount = allTasks.length - pendingCount
+
+    return {
+      totalCount: allTasks.length,
+      pendingCount,
+      completedCount,
+    }
+  }, [allTasks])
 
   const handleSeedTasks = async () => {
     try {
@@ -107,6 +117,30 @@ export default function Page() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-12">
+      <div className="bg-muted/30 mb-6 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-md border px-3 py-2 text-sm">
+        <div className="flex items-center gap-1.5">
+          <ListTodo className="size-3.5 text-slate-600 dark:text-slate-300" />
+          <span className="text-muted-foreground">Total</span>
+          <span className="font-medium">{taskStats.totalCount}</span>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <Clock3 className="size-3.5 text-amber-600 dark:text-amber-300" />
+          <span className="text-muted-foreground">Pending</span>
+          <span className="font-medium text-amber-700 dark:text-amber-300">
+            {taskStats.pendingCount}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <CheckCircle2 className="size-3.5 text-emerald-600 dark:text-emerald-300" />
+          <span className="text-muted-foreground">Completed</span>
+          <span className="font-medium text-emerald-700 dark:text-emerald-300">
+            {taskStats.completedCount}
+          </span>
+        </div>
+      </div>
+
       <div className="mb-8 flex gap-3">
         <InputGroup className="h-10">
           <InputGroupAddon>
