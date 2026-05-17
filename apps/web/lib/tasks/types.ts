@@ -1,8 +1,8 @@
 import z from "zod"
 
-export const TaskIdSchema = z.string().min(1)
+const TaskIdSchema = z.string().min(1)
 
-export const TaskSchema = z.object({
+const TaskSchema = z.object({
   id: TaskIdSchema,
   title: z.string().min(1, "cannot be empty"),
   description: z.string().nullable().optional(),
@@ -11,7 +11,7 @@ export const TaskSchema = z.object({
   dueDate: z.string(),
 })
 
-export const CreateTaskInputSchema = TaskSchema.omit({ id: true })
+const CreateTaskInputSchema = TaskSchema.omit({ id: true })
 export const TaskFormSchema = CreateTaskInputSchema.omit({ status: true }).extend({
   title: z.string().trim().min(1, "Title is required"),
   description: z.string().trim().optional(),
@@ -30,9 +30,9 @@ export const CreateTaskFormSchema = TaskFormSchema.transform((input) => ({
   ...normalizeTaskFormInput(input),
   status: "pending" as const,
 }))
-export const UpdateTaskInputSchema = CreateTaskInputSchema.partial()
+const UpdateTaskInputSchema = CreateTaskInputSchema.partial()
 
-export const TasksQuerySchema = z.object({
+const TasksQuerySchema = z.object({
   status: z.enum(["completed", "pending"]).optional(),
   priority: z.enum(["low", "medium", "high"]).optional(),
   search: z.string().min(1).optional(),
@@ -41,8 +41,6 @@ export const TasksQuerySchema = z.object({
 export type TaskId = z.infer<typeof TaskIdSchema>
 export type Task = z.infer<typeof TaskSchema>
 export type CreateTaskInput = z.infer<typeof CreateTaskInputSchema>
-export type TaskFormInput = z.input<typeof TaskFormSchema>
-export type CreateTaskFormInput = z.input<typeof CreateTaskFormSchema>
 export type UpdateTaskInput = z.infer<typeof UpdateTaskInputSchema>
 export type TasksQuery = z.infer<typeof TasksQuerySchema>
 

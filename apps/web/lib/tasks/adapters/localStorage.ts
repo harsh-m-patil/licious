@@ -44,7 +44,7 @@ const sortTasks = (items: Task[]) =>
     return left.title.localeCompare(right.title)
   })
 
-export class LocalStorageTasksStorage implements TasksStorage {
+class LocalStorageTasksStorage implements TasksStorage {
   constructor(private readonly storageKey = DEFAULT_STORAGE_KEY) {}
 
   async list(query?: TasksQuery): Promise<Task[]> {
