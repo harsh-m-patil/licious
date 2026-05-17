@@ -1,0 +1,86 @@
+import type { Task } from "./types"
+
+export const tasks: Task[] = [
+  {
+    id: "task-1",
+    title: "Finish landing page copy",
+    description: "Write and review hero section, features, and CTA text.",
+    priority: "high",
+    status: "pending",
+    dueDate: "2026-05-20",
+  },
+  {
+    id: "task-2",
+    title: "Fix login validation bug",
+    description:
+      "Resolve incorrect error handling for empty password submissions.",
+    priority: "high",
+    status: "pending",
+    dueDate: "2026-05-18",
+  },
+  {
+    id: "task-3",
+    title: "Update onboarding checklist",
+    description: "Add profile setup and workspace invitation steps.",
+    priority: "medium",
+    status: "completed",
+    dueDate: "2026-05-14",
+  },
+  {
+    id: "task-4",
+    title: "Refactor task card component",
+    description: "Simplify props and extract badge rendering logic.",
+    priority: "medium",
+    status: "pending",
+    dueDate: "2026-05-22",
+  },
+  {
+    id: "task-5",
+    title: "Prepare sprint demo",
+    description: "Collect screenshots and summarize completed features.",
+    priority: "high",
+    status: "pending",
+    dueDate: "2026-05-19",
+  },
+  {
+    id: "task-6",
+    title: "Clean up unused icons",
+    description: null,
+    priority: "low",
+    status: "completed",
+    dueDate: "2026-05-10",
+  },
+  {
+    id: "task-7",
+    title: "Review accessibility issues",
+    description:
+      "Check color contrast and keyboard navigation in dashboard views.",
+    priority: "medium",
+    status: "pending",
+    dueDate: "2026-05-24",
+  },
+  {
+    id: "task-8",
+    title: "Write API integration tests",
+    description: "Cover task creation, update, and deletion flows.",
+    priority: "high",
+    status: "pending",
+    dueDate: "2026-05-23",
+  },
+  {
+    id: "task-9",
+    title: "Organize design feedback notes",
+    description: "Group comments from the last stakeholder review.",
+    priority: "low",
+    status: "completed",
+    dueDate: "2026-05-12",
+  },
+  {
+    id: "task-10",
+    title: "Optimize dashboard query",
+    description: "Reduce load time for task summary widgets.",
+    priority: "medium",
+    status: "pending",
+    dueDate: "2026-05-21",
+  },
+]
