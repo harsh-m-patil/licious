@@ -4,7 +4,7 @@ import { useMemo, useState } from "react"
 
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
 
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Search, X } from "lucide-react"
 
 import {
@@ -13,9 +13,11 @@ import {
   EditTaskDialog,
 } from "@/components/create-task-dialog"
 import { ModeToggle } from "@/components/mode-toggle"
-import { tasksListQueryOptions } from "@/lib/tasks/queries"
+import { createLocalStorageTasksStorage } from "@/lib/tasks/adapters/localStorage"
+import { tasksKeys, tasksListQueryOptions } from "@/lib/tasks/queries"
 import { parseTasksSearch } from "@/lib/tasks/search"
 import { Badge } from "@workspace/ui/components/badge"
+import { Button } from "@workspace/ui/components/button"
 import { cn } from "@workspace/ui/lib/utils"
 import {
   Card,
@@ -38,6 +40,8 @@ import {
   InputGroupText,
 } from "@workspace/ui/components/input-group"
 
+const tasksStorage = createLocalStorageTasksStorage()
+
 const priorityBadgeStyles = {
   low: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-300",
   medium:
@@ -54,7 +58,10 @@ function getTodayDateKey() {
 }
 
 export default function Page() {
+  const queryClient = useQueryClient()
   const [searchInput, setSearchInput] = useState("")
+  const [isSeeding, setIsSeeding] = useState(false)
+  const [seedError, setSeedError] = useState<string | null>(null)
   const debouncedSearchInput = useDebouncedValue(searchInput, 300)
   const parsedSearch = useMemo(
     () => parseTasksSearch(searchInput),
@@ -82,6 +89,21 @@ export default function Page() {
   const isSearching = searchInput.trim().length > 0
   const isDebouncing = searchInput !== debouncedSearchInput
   const todayDateKey = getTodayDateKey()
+
+  const handleSeedTasks = async () => {
+    try {
+      setIsSeeding(true)
+      setSeedError(null)
+      await tasksStorage.seedTasks()
+      await queryClient.invalidateQueries({ queryKey: tasksKeys.all })
+    } catch (error) {
+      setSeedError(
+        error instanceof Error ? error.message : "Failed to seed tasks."
+      )
+    } finally {
+      setIsSeeding(false)
+    }
+  }
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-12">
@@ -148,14 +170,33 @@ export default function Page() {
           Failed to load tasks: {(error ?? allTasksError)?.message}
         </p>
       ) : tasks.length === 0 ? (
-        <Empty className="border">
-          <EmptyHeader>
-            <EmptyTitle>No matching tasks</EmptyTitle>
-            <EmptyDescription>
-              Try a different search, or clear a qualifier like status:completed.
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
+        allTasks.length === 0 ? (
+          <Empty className="border">
+            <EmptyHeader>
+              <EmptyTitle>No tasks yet</EmptyTitle>
+              <EmptyDescription>
+                Add your first task, or seed the list with sample tasks.
+              </EmptyDescription>
+            </EmptyHeader>
+            <div className="flex flex-col items-center gap-3">
+              <Button onClick={handleSeedTasks} disabled={isSeeding}>
+                {isSeeding ? "Seeding..." : "Seed tasks"}
+              </Button>
+              {seedError ? (
+                <p className="text-destructive text-sm">{seedError}</p>
+              ) : null}
+            </div>
+          </Empty>
+        ) : (
+          <Empty className="border">
+            <EmptyHeader>
+              <EmptyTitle>No matching tasks</EmptyTitle>
+              <EmptyDescription>
+                Try a different search, or clear a qualifier like status:completed.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        )
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {tasks.map((task) => {
